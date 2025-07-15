@@ -20,6 +20,8 @@ type settings struct {
 	revokeOldPerms      bool
 	cloneVia            string
 	ghOrg               string
+	ghUser              string
+	ghOwner             string
 	ghToken             string
 	dryRun              bool
 	overwrite           bool
@@ -44,7 +46,9 @@ func main() {
 		bbPassword:          os.Getenv("BITBUCKET_TOKEN"),
 		revokeOldPerms:      getEnvVarAsBool("BITBUCKET_REVOKEOLDPERMS"),
 		cloneVia:            os.Getenv("CLONE_VIA"),
+		ghUser:              os.Getenv("GITHUB_USER"),
 		ghOrg:               os.Getenv("GITHUB_ORG"),
+		ghOwner:             "",
 		ghToken:             os.Getenv("GITHUB_TOKEN"),
 		dryRun:              getEnvVarAsBool("GITHUB_DRYRUN"),
 		overwrite:           getEnvVarAsBool("GITHUB_OVERWRITE"),
@@ -62,10 +66,17 @@ func main() {
 		os.Exit(2)
 	}
 
-	if config.ghOrg == "" || config.ghToken == "" {
-		fmt.Println("GITHUB_ORG or GITHUB_TOKEN not set in .env file or env vars")
+	if config.ghToken == "" {
+		fmt.Println("GITHUB_TOKEN not set in .env file or env vars")
 		os.Exit(2)
 	}
+
+	if (config.ghUser == "" && config.ghOrg == "") || (config.ghUser != "" && config.ghOrg != "") {
+		fmt.Println("You must set either org or user but not both")
+		os.Exit(2)
+	}
+
+	config.ghOwner = strings.Join([]string{config.ghOrg, config.ghUser}, "")
 
 	repos := parseRepos(config.repoFile)
 
@@ -122,6 +133,8 @@ func parseRepos(repoFile string) []string {
 			repo = strings.ReplaceAll(repo, "&", "-")
 			repo = strings.ReplaceAll(repo, "(", "-")
 			repo = strings.ReplaceAll(repo, ")", "-")
+			// - is not allowed at start or end of string
+			repo = strings.Trim(repo, "-")
 			cleaned_repos = append(cleaned_repos, repo)
 		}
 	}
@@ -166,19 +179,19 @@ func migrateRepo(gh *github.Client, bb *bitbucket.Client, repoName string, confi
 		fmt.Println("Skipping repo contents")
 	}
 	if config.migrateRepoSettings {
-		updateRepo(gh, config.ghOrg, ghRepo, config.dryRun)
-		updateRepoTopics(gh, config.ghOrg, ghRepo, config.dryRun)
-		updateCustomProperties(gh, config.ghOrg, ghRepo, config.dryRun, bbRepo.Project.Name)
+		updateRepo(gh, config.ghOwner, ghRepo, config.dryRun)
+		updateRepoTopics(gh, config.ghOwner, ghRepo, config.dryRun)
+		updateCustomProperties(gh, config.ghOwner, ghRepo, config.dryRun, bbRepo.Project.Name)
 	} else {
 		fmt.Println("Skipping repo settings")
 	}
 	if config.migrateOpenPrs {
-		migrateOpenPrs(gh, config.ghOrg, ghRepo, prs, config.dryRun)
+		migrateOpenPrs(gh, config.ghOwner, ghRepo, prs, config.dryRun)
 	} else {
 		fmt.Println("Skipping open PR's")
 	}
 	if config.migrateClosedPrs {
-		createClosedPrs(gh, config.ghOrg, ghRepo, prs, config.dryRun)
+		createClosedPrs(gh, config.ghOwner, ghRepo, prs, config.dryRun)
 	} else {
 		fmt.Println("Skipping closed PR's")
 	}

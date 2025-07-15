@@ -41,7 +41,7 @@ func createRepo(gh *github.Client, repo *bitbucket.Repository, config settings) 
 		return ghRepo
 	}
 
-	fmt.Printf("Creating repo %s/%s\n", config.ghOrg, repo.Slug)
+	fmt.Printf("Creating repo %s/%s\n", config.ghOwner, repo.Slug)
 	repoCreated := false
 	_, _, err := gh.Repositories.Create(context.Background(), config.ghOrg, ghRepo)
 	if err != nil {
@@ -62,7 +62,7 @@ func createRepo(gh *github.Client, repo *bitbucket.Repository, config settings) 
 	// Wait for the repository to be available
 	for i := 0; i < 20; i++ {
 		time.Sleep(200 * time.Millisecond)
-		response, _, _ := gh.Repositories.Get(context.Background(), config.ghOrg, repo.Slug)
+		response, _, _ := gh.Repositories.Get(context.Background(), config.ghOwner, repo.Slug)
 		if response != nil {
 			fmt.Println("Repo has been created!")
 			return ghRepo
@@ -77,19 +77,24 @@ func createRepo(gh *github.Client, repo *bitbucket.Repository, config settings) 
 
 // you need to call this after createRepo and pushRepoToGithub because
 // topics can't be updated until the repository has contents
-func updateRepoTopics(gh *github.Client, githubOrg string, ghRepo *github.Repository, dryRun bool) {
+func updateRepoTopics(gh *github.Client, githubOwner string, ghRepo *github.Repository, dryRun bool) {
 	if dryRun {
 		fmt.Println("Mock updating repo topics")
 		return
 	}
-	fmt.Printf("Updating repo %s/%s topics\n", githubOrg, *ghRepo.Name)
-	_, _, err := gh.Repositories.ReplaceAllTopics(context.Background(), githubOrg, *ghRepo.Name, ghRepo.Topics)
+	fmt.Printf("Updating repo %s/%s topics\n", githubOwner, *ghRepo.Name)
+	_, _, err := gh.Repositories.ReplaceAllTopics(context.Background(), githubOwner, *ghRepo.Name, ghRepo.Topics)
 	if err != nil {
 		log.Fatalf("failed to update topics for repo %s, error: %s", *ghRepo.Name, err)
 	}
 }
 
 func updateCustomProperties(gh *github.Client, githubOrg string, ghRepo *github.Repository, dryRun bool, projectName string) {
+	if githubOrg == "" {
+		// custom properties only works with organizations
+		// if no organization, we can't do anything
+		return
+	}
 	customProps := []*github.CustomPropertyValue{
 		{
 			PropertyName: "bitbucket",
@@ -106,13 +111,13 @@ func updateCustomProperties(gh *github.Client, githubOrg string, ghRepo *github.
 	gh.Repositories.CreateOrUpdateCustomProperties(context.Background(), githubOrg, *ghRepo.Name, customProps)
 }
 
-func updateRepo(gh *github.Client, githubOrg string, ghRepo *github.Repository, dryRun bool) {
+func updateRepo(gh *github.Client, githubOwner string, ghRepo *github.Repository, dryRun bool) {
 	if dryRun {
 		fmt.Println("Mock updating repo default branch")
 		return
 	}
-	fmt.Printf("Updating repo %s/%s default branch\n", githubOrg, *ghRepo.Name)
-	_, _, err := gh.Repositories.Edit(context.Background(), githubOrg, *ghRepo.Name, ghRepo)
+	fmt.Printf("Updating repo %s/%s default branch\n", githubOwner, *ghRepo.Name)
+	_, _, err := gh.Repositories.Edit(context.Background(), githubOwner, *ghRepo.Name, ghRepo)
 	if err != nil {
 		log.Fatalf("failed to update repo %s, error: %s", *ghRepo.Name, err)
 	}
@@ -126,7 +131,7 @@ func cleanBitbucketPRSummary(prSummary string) string {
 }
 
 // migrate open pull requests
-func migrateOpenPrs(gh *github.Client, githubOrg string, ghRepo *github.Repository, prs *PullRequests, dryRun bool) {
+func migrateOpenPrs(gh *github.Client, githubOwner string, ghRepo *github.Repository, prs *PullRequests, dryRun bool) {
 	for _, pr := range prs.Values {
 		if pr.State != "OPEN" {
 			continue
@@ -146,7 +151,7 @@ func migrateOpenPrs(gh *github.Client, githubOrg string, ghRepo *github.Reposito
 		if dryRun {
 			return
 		}
-		newPr, _, err := gh.PullRequests.Create(context.Background(), githubOrg, *ghRepo.Name, gh_pr)
+		newPr, _, err := gh.PullRequests.Create(context.Background(), githubOwner, *ghRepo.Name, gh_pr)
 		if err != nil {
 			if strings.Contains(err.Error(), "A pull request already exists") {
 				fmt.Printf("Skipping PR creation for PR %s, PR already exists\n", prID)
@@ -167,7 +172,7 @@ func migrateOpenPrs(gh *github.Client, githubOrg string, ghRepo *github.Reposito
 }
 
 // create pull requests
-func createClosedPrs(gh *github.Client, githubOrg string, ghRepo *github.Repository, prs *PullRequests, dryRun bool) {
+func createClosedPrs(gh *github.Client, githubOwner string, ghRepo *github.Repository, prs *PullRequests, dryRun bool) {
 	for _, pr := range prs.Values {
 		if pr.State != "MERGED" {
 			continue
@@ -186,7 +191,7 @@ func createClosedPrs(gh *github.Client, githubOrg string, ghRepo *github.Reposit
 			return
 		}
 		fmt.Printf("Updating issue for PR %s\n", strconv.Itoa(pr.ID))
-		issueResponse, _, err := gh.Issues.Create(context.Background(), githubOrg, *ghRepo.Name, issue)
+		issueResponse, _, err := gh.Issues.Create(context.Background(), githubOwner, *ghRepo.Name, issue)
 		if err != nil {
 			log.Fatalf("failed to create issue for PR %s, error: %s", strconv.Itoa(pr.ID), err)
 		}
@@ -195,13 +200,13 @@ func createClosedPrs(gh *github.Client, githubOrg string, ghRepo *github.Reposit
 		comment := &github.RepositoryComment{
 			Body: github.Ptr("Bitbucket PR details: #" + strconv.Itoa(*issueResponse.Number)),
 		}
-		_, _, err = gh.Repositories.CreateComment(context.Background(), githubOrg, *ghRepo.Name, commitHash, comment)
+		_, _, err = gh.Repositories.CreateComment(context.Background(), githubOwner, *ghRepo.Name, commitHash, comment)
 		if err != nil {
 			log.Fatalf("failed to comment on commit %s: %s", commitHash, err)
 		}
 
 		// we can't create a closed issue directly so we have to edit the issue to close it
-		_, _, err = gh.Issues.Edit(context.Background(), githubOrg, *ghRepo.Name, *issueResponse.Number, issue)
+		_, _, err = gh.Issues.Edit(context.Background(), githubOwner, *ghRepo.Name, *issueResponse.Number, issue)
 		if err != nil {
 			log.Fatalf("failed to close issue %s: %s", *issueResponse.URL, err)
 		}
@@ -224,7 +229,7 @@ func runProgram(repoFolder string, program string) ([]byte, error) {
 func pushRepoToGithub(repoFolder string, repoName string, config settings) {
 	const newOrigin string = "newOrigin"
 
-	cmd := exec.Command("git", "remote", "add", newOrigin, fmt.Sprintf("https://github.com/%s/%s.git", config.ghOrg, repoName))
+	cmd := exec.Command("git", "remote", "add", newOrigin, fmt.Sprintf("https://github.com/%s/%s.git", config.ghOwner, repoName))
 	cmd.Dir = repoFolder
 	output, err := cmd.CombinedOutput()
 	fmt.Print(string(output))

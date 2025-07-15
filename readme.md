@@ -28,6 +28,8 @@ BITBUCKET_REVOKEOLDPERMS=false
 # choose whatever method you use in the terminal
 CLONE_VIA=ssh
 
+# set either user or org, but not both
+GITHUB_USER=
 GITHUB_ORG=YOUR_ORG_HERE
 # You can use a PAT of a user, but make sure the token owner is the org
 # The token MUST have write access to Administration, Contents, Issues, and Pull Requests
