@@ -168,8 +168,8 @@ type PullRequest struct {
 	CloseSourceBranch bool           `mapstructure:"close_source_branch"`
 	ClosedBy          map[string]any `mapstructure:"closed_by"`
 	Reason            string
-	CreatedOn         string `mapstructure:"created_on"`
-	UpdatedOn         string `mapstructure:"updated_on"`
+	CreatedOn         time.Time `mapstructure:"created_on"`
+	UpdatedOn         time.Time `mapstructure:"updated_on"`
 	Reviewers         []map[string]any
 	Participants      []map[string]any
 	Draft             bool
@@ -198,18 +198,18 @@ type PRMergeCommit struct {
 	Hash string
 }
 
-func decodePullRequests(reposResponse interface{}) (*PullRequests, error) {
-	prResponseMap, ok := reposResponse.(map[string]interface{})
+func decodePullRequests(prsResponse interface{}) (*PullRequests, error) {
+	prResponseMap, ok := prsResponse.(map[string]interface{})
 	if !ok {
-		return nil, errors.New("Not a valid format")
+		return nil, errors.New("not a valid format")
 	}
 
-	repoArray := prResponseMap["values"].([]interface{})
+	prArray := prResponseMap["values"].([]interface{})
 	var prs []PullRequest
-	for _, repoEntry := range repoArray {
-		repo, err := decodePullRequest(repoEntry)
+	for _, prEntry := range prArray {
+		pr, err := decodePullRequest(prEntry)
 		if err == nil {
-			prs = append(prs, *repo)
+			prs = append(prs, *pr)
 		} else {
 			return nil, err
 		}
@@ -239,10 +239,10 @@ func decodePullRequests(reposResponse interface{}) (*PullRequests, error) {
 }
 
 func decodePullRequest(response interface{}) (*PullRequest, error) {
-	repoMap := response.(map[string]interface{})
+	prMap := response.(map[string]interface{})
 
-	if repoMap["type"] == "error" {
-		return nil, DecodeError(repoMap)
+	if prMap["type"] == "error" {
+		return nil, DecodeError(prMap)
 	}
 
 	var pr = new(PullRequest)
@@ -254,7 +254,7 @@ func decodePullRequest(response interface{}) (*PullRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = decoder.Decode(repoMap)
+	err = decoder.Decode(prMap)
 	if err != nil {
 		return nil, err
 	}

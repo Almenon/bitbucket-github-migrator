@@ -51,8 +51,7 @@ MIGRATE_REPO_CONTENTS=true
 # and migrating repo settings will reset it back
 MIGRATE_REPO_SETTINGS=true
 MIGRATE_OPEN_PRS=true
-# MIGRATE_CLOSED_PRS not quite ready for usage yet
-MIGRATE_CLOSED_PRS=false
+MIGRATE_CLOSED_PRS=true
 
 REPO_FILE=repos.txt
 ```
