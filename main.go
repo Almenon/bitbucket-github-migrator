@@ -13,6 +13,11 @@ import (
 	"github.com/ktrysmt/go-bitbucket"
 )
 
+const (
+	// we want to avoid hitting API rate limits
+	GitHubRateLimitSleep = 500 * time.Millisecond
+)
+
 type settings struct {
 	bbWorkspace         string
 	bbUsername          string
@@ -198,6 +203,5 @@ func migrateRepo(gh *github.Client, bb *bitbucket.Client, repoName string, confi
 	fmt.Println("done migrating repo")
 	fmt.Print("-----------------------\n\n")
 
-	// sleep for .5s to help avoid github rate limit
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(GitHubRateLimitSleep)
 }

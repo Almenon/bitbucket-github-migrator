@@ -164,8 +164,7 @@ func migrateOpenPrs(gh *github.Client, githubOwner string, ghRepo *github.Reposi
 			fmt.Printf("Migrated BB PR %s as GH PR %s\n", prID, strconv.Itoa(*newPr.Number))
 		}
 
-		// sleep for .5s to help avoid github rate limit
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(GitHubRateLimitSleep)
 	}
 }
 
@@ -217,8 +216,8 @@ func createClosedPrs(gh *github.Client, githubOwner string, ghRepo *github.Repos
 		if err != nil {
 			log.Fatalf("failed to close issue %s: %s", *issueResponse.URL, err)
 		}
-		// sleep for .5s to help avoid github rate limit
-		time.Sleep(time.Millisecond * 500)
+
+		time.Sleep(GitHubRateLimitSleep)
 	}
 }
 
