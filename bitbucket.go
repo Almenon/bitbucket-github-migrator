@@ -22,8 +22,7 @@ func getRepo(bb *bitbucket.Client, owner string, repoName string) *bitbucket.Rep
 	}
 	repo, err := bb.Repositories.Repository.Get(ro)
 	if err != nil {
-		fmt.Println("Failed to get repo from bitbucket")
-		panic(err)
+		log.Fatalf("Failed to get repo from bitbucket: %v", err)
 	}
 	return repo
 }
@@ -63,11 +62,11 @@ func updatePermissionsToReadOnly(bb *bitbucket.Client, owner string, repoName st
 	}
 	user_perms, err := bb.Repositories.Repository.ListUserPermissions(ro)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to get user permissions: %v", err)
 	}
 	group_perms, err := bb.Repositories.Repository.ListGroupPermissions(ro)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to get group permissions: %v", err)
 	}
 
 	if dryRun {
@@ -115,11 +114,11 @@ func getPrs(bb *bitbucket.Client, owner string, repo string, destinationBranch s
 	fmt.Println("getting prs for", repo)
 	response, err := bb.Repositories.PullRequests.Gets(opt)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to get PRs: %v", err)
 	}
 	prs, err := decodePullRequests(response)
 	if err != nil {
-		panic(fmt.Sprintf("error decoding PRs: %s", err))
+		log.Fatalf("Error decoding PRs: %v", err)
 	}
 	slices.SortFunc(prs.Values, func(i PullRequest, j PullRequest) int {
 		return cmp.Compare(i.ID, j.ID)
