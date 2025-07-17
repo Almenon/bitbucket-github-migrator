@@ -42,7 +42,6 @@ func createRepo(gh *github.Client, repo *bitbucket.Repository, config settings) 
 	}
 
 	fmt.Printf("Creating repo %s/%s\n", config.ghOwner, repo.Slug)
-	repoCreated := false
 	_, _, err := gh.Repositories.Create(context.Background(), config.ghOrg, ghRepo)
 	if err != nil {
 		if strings.Contains(err.Error(), "name already exists on this account") {
@@ -52,10 +51,6 @@ func createRepo(gh *github.Client, repo *bitbucket.Repository, config settings) 
 		} else {
 			log.Fatalf("failed to create repo %s, error: %s", repo.Slug, err)
 		}
-	}
-
-	if repoCreated {
-		return ghRepo
 	}
 
 	// The repository might not have been created yet
