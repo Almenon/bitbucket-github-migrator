@@ -153,10 +153,10 @@ func migrateOpenPrs(gh *github.Client, githubOwner string, ghRepo *github.Reposi
 			} else if strings.Contains(err.Error(), "422 Validation Failed [{Resource:PullRequest Field:head Code:invalid Message:}]") {
 				fmt.Printf("Could not make PR %s, originating branch %s likely no longer exists\n", prID, *gh_pr.Head)
 			} else {
-				log.Fatalf("failed to create PR %s, error: %s", strconv.Itoa(pr.ID), err)
+				log.Fatalf("failed to create PR %s, error: %s", prID, err)
 			}
 		} else {
-			fmt.Printf("Migrated BB PR %s as GH PR %s\n", prID, strconv.Itoa(*newPr.Number))
+			fmt.Printf("Migrated BB PR %s as GH PR %d\n", prID, *newPr.Number)
 		}
 
 		time.Sleep(GitHubRateLimitSleep)
@@ -191,10 +191,10 @@ func createClosedPrs(gh *github.Client, githubOwner string, ghRepo *github.Repos
 		if dryRun {
 			return
 		}
-		fmt.Printf("Updating issue for PR %s\n", strconv.Itoa(pr.ID))
+		fmt.Printf("Updating issue for PR %d\n", pr.ID)
 		issueResponse, _, err := gh.Issues.Create(context.Background(), githubOwner, *ghRepo.Name, issue)
 		if err != nil {
-			log.Fatalf("failed to create issue for PR %s, error: %s", strconv.Itoa(pr.ID), err)
+			log.Fatalf("failed to create issue for PR %d, error: %s", pr.ID, err)
 		}
 
 		commitHash := pr.MergeCommit.Hash
